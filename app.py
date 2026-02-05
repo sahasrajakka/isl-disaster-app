@@ -18,7 +18,7 @@ NASA_KEY = "PASTE_YOUR_NASA_KEY_HERE"
 def fetch_nowcast_data():
     """Fetches real-time thermal anomalies for India from NASA VIIRS satellites"""
     # This URL targets India (IND) for the last 24 hours (1 day)
-    url = f"https://firms.modaps.eosdis.nasa.gov{92b32694a52d2b8e8f7d36bd3396e63}/VIIRS_SNPP_NRT/IND/1"
+    url = f"https://firms.modaps.eosdis.nasa.govapi/country/csv/{992b32694a52d2b8e8f7d36bd3396e63}/VIIRS_SNPP_NRT/IND/1"
     try:
         response = requests.get(url)
         if response.status_code == 200:
