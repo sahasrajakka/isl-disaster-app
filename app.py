@@ -13,7 +13,7 @@ st.subheader("Real-Time Disaster Nowcasting System")
 
 # --- 2. DATA LAYER (NASA API) ---
 # Paste your key inside the quotes below
-NASA_KEY = "PASTE_YOUR_NASA_KEY_HERE" 
+NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63" 
 
 def fetch_nowcast_data():
     """Fetches real-time thermal anomalies for India from NASA VIIRS satellites"""
