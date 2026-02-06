@@ -17,8 +17,8 @@ NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63"
 WEATHER_KEY = "068f5f337167419136f75ca883eb3770" # <--- Put your key here
 
 # --- 3. DATA LAYER (NASA API) ---
-def fetch_nowcast_data():
-    url = f"https://firms.modaps.eosdis.nasa.gov{NASA_KEY}/VIIRS_SNPP_NRT/IND/1"
+def fetch_nowcast_data():    
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv{NASA_KEY}/VIIRS_SNPP_NRT/IND/1"
     try:
         response = requests.get(url)
         if response.status_code == 200:
