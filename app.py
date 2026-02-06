@@ -57,7 +57,7 @@ if hazard_choice != "None":
     selected_layer = layer_map[hazard_choice]
     
     # Professional Tile URL
-    weather_url = f"https://tile.openweathermap.org{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
+    weather_url = f"https://tile.openweathermap.org/map/{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
     
     folium.TileLayer(
         tiles=weather_url,
