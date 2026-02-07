@@ -107,6 +107,7 @@ legend_html = f"""
     bottom: 50px; left: 50px; width: 180px; height: 110px; 
     background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
     padding: 10px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    color: black;
     ">
     <b>Map Legend</b><br>
     <i style="background:red; width:12px; height:12px; display:inline-block; border-radius:50%"></i> Fire Hotspot<br>
