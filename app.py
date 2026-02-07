@@ -22,10 +22,6 @@ WEATHER_KEY = "068f5f337167419136f75ca883eb3770"
 def fetch_nowcast_data(api_key):    
     # Corrected NASA FIRMS URL structure for Country CSV - FIXED SLASH
     url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv/{api_key}/VIIRS_SNPP_NRT/IND/1"
-
-
-
-{api_key}/VIIRS_SNPP_NRT/IND/1"
     try:
         response = requests.get(url)
         if response.status_code == 200:
