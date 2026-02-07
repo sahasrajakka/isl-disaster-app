@@ -45,31 +45,46 @@ if fire_data is not None:
 else:
     st.sidebar.error("Satellite Offline")
 
+# ... (imports and previous sections 1-3 remain the same) ...
+
 # --- 4. MAPPING ENGINE ---
-# Center on India
 m = folium.Map(location=[20.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
 
-# 4a. OpenWeather Layers
-if hazard_choice != "None":
-    layer_map = {
-        "Precipitation (Rain)": "precipitation_new",
-        "Wind Speed": "wind_new",
-        "Cloud Coverage": "clouds_new"
-    }
-    selected_layer = layer_map[hazard_choice]
-    
-    # Corrected Tile URL for OpenWeatherMap 1.0
-    weather_url = f"https://tile.openweathermap.org/map/{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
+# 4a. RainViewer Radar Layer (Updated for multiple frames/animation control)
+if hazard_choice == "RainViewer Radar":
+    RVIEW_API_URL = "https://api.rainviewer.com"
+    try:
+        rview_data = requests.get(RVIEW_API_URL).json()
+        host = rview_data['host']
+        
+        # Get ALL available past radar frames
+        past_frames = rview_data['radar']['past']
 
-    
-    folium.TileLayer(
-        tiles=weather_url,
-        attr='OpenWeatherMap',
-        name=hazard_choice,
-        overlay=True,
-        opacity=0.6
-    ).add_to(m)
+        # Loop through frames to add a TileLayer for each timestamp
+        for frame in past_frames:
+            time_utc = frame['time']
+            path = frame['path']
+            # Using size 256, scheme 2 (Universal Blue), smooth 1, snow 0
+            tile_url = f"{host}{path}/256/{{z}}/{{x}}/{{y}}/2/1_0.png"
+            
+            folium.TileLayer(
+                tiles=tile_url,
+                attr='RainViewer.com',
+                # Name the layer by its UTC time for identification
+                name=f"Rain Radar {time_utc} UTC",
+                overlay=True,
+                opacity=0.7,
+                max_zoom=7,
+                show=False if frame != past_frames[-1] else True # Only show the latest by default
+            ).add_to(m)
+        
+        # Add a Layer Control widget to switch between historical frames manually
+        folium.LayerControl().add_to(m)
 
+    except requests.exceptions.RequestException as e:
+        st.warning(f"Could not fetch RainViewer data: {e}")
+    except KeyError:
+        st.warning("RainViewer data format unexpected or temporarily unavailable.")
 # 4b. NASA Fire Dots
 if fire_data is not None and not fire_data.empty:
     for _, row in fire_data.iterrows():
