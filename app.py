@@ -20,8 +20,8 @@ WEATHER_KEY = "068f5f337167419136f75ca883eb3770"
 # --- 2. DATA LAYER ---
 @st.cache_data(ttl=3600) # Cache for 1 hour to prevent API hitting limits
 def fetch_nowcast_data(api_key):    
-    # Corrected NASA FIRMS URL structure for Country CSV
-    url = f"https://firms.modaps.eosdis.nasa.gov{api_key}/VIIRS_SNPP_NRT/IND/1"
+    # Corrected NASA FIRMS URL structure for Country CSV 
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv{NASA_KEY}/VIIRS_SNPP_NRT/IND/1"
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -59,7 +59,7 @@ if hazard_choice != "None":
     selected_layer = layer_map[hazard_choice]
     
     # Corrected Tile URL for OpenWeatherMap 1.0
-    weather_url = f"https://tile.openweathermap.org{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
+    weather_url = f"https://tile.openweathermap.org/map/{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
     
     folium.TileLayer(
         tiles=weather_url,
