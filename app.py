@@ -4,6 +4,7 @@ from streamlit_folium import st_folium
 import requests
 import pandas as pd
 from io import StringIO
+from branca.element import Template, MacroElement
 
 # --- 1. SETUP ---
 st.set_page_config(page_title="Project Sentinel", layout="wide")
@@ -11,43 +12,44 @@ st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: AI-Powered GEOINT")
 st.subheader("Real-Time Multi-Hazard Nowcasting System")
 
-# --- 2. SECURITY LAYER ---
-# Once you move to 'secrets.toml', replace these with st.secrets["KEY_NAME"]
+# SECURITY: Use st.secrets in production! 
+# NASA_KEY = st.secrets["NASA_KEY"]
 NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63" 
-WEATHER_KEY = "068f5f337167419136f75ca883eb3770" # <--- Put your key here
+WEATHER_KEY = "068f5f337167419136f75ca883eb3770" 
 
-# --- 3. DATA LAYER (NASA API) ---
-def fetch_nowcast_data():    
-    url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv{NASA_KEY}/VIIRS_SNPP_NRT/IND/1"
+# --- 2. DATA LAYER ---
+@st.cache_data(ttl=3600) # Cache for 1 hour to prevent API hitting limits
+def fetch_nowcast_data(api_key):    
+    # Corrected NASA FIRMS URL structure for Country CSV
+    url = f"https://firms.modaps.eosdis.nasa.gov{api_key}/VIIRS_SNPP_NRT/IND/1"
     try:
         response = requests.get(url)
         if response.status_code == 200:
             return pd.read_csv(StringIO(response.text))
     except Exception as e:
-        st.error(f"Failed to fetch satellite data: {e}")
+        st.error(f"Satellite data error: {e}")
     return None
 
-# --- 4. SIDEBAR & CONTROLS ---
+# --- 3. SIDEBAR & CONTROLS ---
 st.sidebar.title("🛡️ Command Centre")
-
-# STEP 2 ADD-ON: The Hazard Selector
 hazard_choice = st.sidebar.radio(
     "Live Hazard Overlays:",
     ("None", "Precipitation (Rain)", "Wind Speed", "Cloud Coverage")
 )
 
-fire_data = fetch_nowcast_data()
+fire_data = fetch_nowcast_data(NASA_KEY)
 
 if fire_data is not None:
-    st.sidebar.success(f"Satellite Connection: Active")
-    st.sidebar.metric("Active Hotspots", len(fire_data))
+    st.sidebar.success("Satellite Connection: Active")
+    st.sidebar.metric("Active Hotspots (IND)", len(fire_data))
 else:
     st.sidebar.error("Satellite Offline")
 
-# --- 5. MAPPING ENGINE ---
+# --- 4. MAPPING ENGINE ---
+# Center on India
 m = folium.Map(location=[20.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
 
-# 5a. Logic for OpenWeather Multi-Hazard Layers
+# 4a. OpenWeather Layers
 if hazard_choice != "None":
     layer_map = {
         "Precipitation (Rain)": "precipitation_new",
@@ -56,33 +58,55 @@ if hazard_choice != "None":
     }
     selected_layer = layer_map[hazard_choice]
     
-    # Professional Tile URL
-    weather_url = f"https://tile.openweathermap.org/map/{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
+    # Corrected Tile URL for OpenWeatherMap 1.0
+    weather_url = f"https://tile.openweathermap.org{selected_layer}/{{z}}/{{x}}/{{y}}.png?appid={WEATHER_KEY}"
     
     folium.TileLayer(
         tiles=weather_url,
         attr='OpenWeatherMap',
         name=hazard_choice,
         overlay=True,
-        control=True,
-        opacity=0.6 # Transparent so dots show through
+        opacity=0.6
     ).add_to(m)
 
-# 5b. NASA Fire Dots
+# 4b. NASA Fire Dots
 if fire_data is not None and not fire_data.empty:
     for _, row in fire_data.iterrows():
         folium.CircleMarker(
             location=[row['latitude'], row['longitude']],
-            radius=4,
+            radius=5,
             color='red',
             fill=True,
             fill_color='orange',
+            fill_opacity=0.7,
             popup=f"Brightness: {row['brightness']}K",
-            tooltip="Thermal Anomaly"
+            tooltip="Thermal Anomaly (Fire)"
         ).add_to(m)
 
+# --- 5. LEGEND COMPONENT ---
+legend_html = f"""
+{{% macro html(this, kwargs) %}}
+<div style="
+    position: fixed; 
+    bottom: 50px; left: 50px; width: 180px; height: 110px; 
+    background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
+    padding: 10px; border-radius: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    ">
+    <b>Map Legend</b><br>
+    <i style="background:red; width:12px; height:12px; display:inline-block; border-radius:50%"></i> Fire Hotspot<br>
+    <i style="background:blue; width:12px; height:12px; display:inline-block; opacity:0.5"></i> {hazard_choice}<br>
+    <hr style="margin: 5px 0;">
+    <small>Source: NASA & OWM</small>
+</div>
+{{% endmacro %}}
+"""
+legend = MacroElement()
+legend._template = Template(legend_html)
+m.get_root().add_child(legend)
+
 # --- 6. DISPLAY ---
-st_folium(m, width=1200, height=600)
+# IMPORTANT: The 'key' ensures the map re-renders when hazard_choice changes
+st_folium(m, width=1200, height=600, key=f"hazard_map_{hazard_choice}")
 
 if hazard_choice != "None":
-    st.info(f"Analysis Mode: NASA Thermal Data fused with {hazard_choice} data.")
+    st.info(f"Fusing NASA Thermal data with OpenWeather {hazard_choice} layer.")
