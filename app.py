@@ -7,17 +7,15 @@ import numpy as np
 from io import StringIO
 from branca.element import Template, MacroElement
 
-# --- 1. SETTINGS & SECRETS ---
+# --- 1. SETTINGS ---
 st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: AI-Powered GEOINT")
 st.subheader("Automated Hazard Correlation & Risk Analysis")
 
-# In production, use st.secrets["NASA_KEY"]
 NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63" 
 
 # --- 2. CORE COMPUTATION ENGINE ---
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculates KM distance between two points on Earth."""
     R = 6371
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
     dphi = np.radians(lat2 - lat1)
@@ -29,30 +27,25 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 def fetch_fire_data(api_key):    
     url = f"https://firms.modaps.eosdis.nasa.gov/api/country/csv/{api_key}/VIIRS_SNPP_NRT/IND/1"
     try:
-        res = requests.get(url)
+        res = requests.get(url, timeout=10)
         return pd.read_csv(StringIO(res.text)) if res.status_code == 200 else None
     except: return None
 
 @st.cache_data(ttl=1800)
 def fetch_wind_grid():
-    """Generates a spatial grid over India and fetches current wind speeds."""
-    # Create a 2.5-degree grid (National Coverage)
     lats_range = np.arange(8, 38, 2.5)
     lons_range = np.arange(68, 98, 2.5)
     grid_coords = [{"lat": round(la, 2), "lon": round(lo, 2)} for la in lats_range for lo in lons_range]
-    
     lat_str = ",".join([str(c['lat']) for c in grid_coords])
     lon_str = ",".join([str(c['lon']) for c in grid_coords])
-    
     w_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat_str}&longitude={lon_str}&current=wind_speed_10m"
     try:
-        res = requests.get(w_url).json()
-        # Open-Meteo returns a list if multiple coords are queried
+        res = requests.get(w_url, timeout=10).json()
         data = res if isinstance(res, list) else [res]
         return [{"lat": d['latitude'], "lon": d['longitude'], "speed": d['current']['wind_speed_10m']} for d in data]
     except: return []
 
-# --- 3. LOGIC & DATA PROCESSING ---
+# --- 3. DATA PROCESSING ---
 fire_df = fetch_fire_data(NASA_KEY)
 wind_data = fetch_wind_grid()
 
@@ -62,81 +55,50 @@ if fire_df is not None and wind_data:
         for _, fire in fire_df.iterrows():
             for wind in wind_data:
                 dist = haversine_distance(fire['latitude'], fire['longitude'], wind['lat'], wind['lon'])
-                # Threshold: Fire within 100km of wind gust > 25km/h
                 if dist < 100 and wind['speed'] > 25:
-                    risk_alerts.append({
-                        'lat': fire['latitude'], 'lon': fire['longitude'],
-                        'wind': wind['speed'], 'dist': round(dist, 1)
-                    })
+                    risk_alerts.append({'lat': fire['latitude'], 'lon': fire['longitude'], 'wind': wind['speed'], 'dist': round(dist, 1)})
                     break
 
-# --- 4. SIDEBAR COMMAND CENTRE ---
+# --- 4. SIDEBAR ---
 st.sidebar.header("System Status")
 if fire_df is not None:
     st.sidebar.success(f"Satellite Active: {len(fire_df)} Hotspots")
     st.sidebar.metric("Critical Risk Zones", len(risk_alerts))
+hazard_overlay = st.sidebar.selectbox("NASA GIBS Overlays", ["None", "Precipitation Rate", "TrueColor Cloud (MODIS)"])
 
-hazard_overlay = st.sidebar.selectbox("Active Overlay", ["None", "Rain Radar", "Cloud Coverage"])
-
-# --- 5. MAPPING ENGINE & DATA VISUALIZATION ---
+# --- 5. MAPPING ENGINE ---
 m = folium.Map(location=[22.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
 
-# A. Draw the "Intelligence" (Critical Risk Alerts)
 for alert in risk_alerts:
-    folium.CircleMarker(
-        location=[alert['lat'], alert['lon']],
-        radius=10, color='darkred', fill=True, fill_opacity=0.8,
-        popup=f"CRITICAL: Fire fanned by {alert['wind']}km/h winds"
-    ).add_to(m)
+    folium.CircleMarker(location=[alert['lat'], alert['lon']], radius=10, color='darkred', fill=True, fill_opacity=0.8, popup=f"CRITICAL: Fire fanned by {alert['wind']}km/h winds").add_to(m)
 
-# B. Draw the raw Satellite Fire Data
 if fire_df is not None:
     for _, row in fire_df.iterrows():
-        folium.CircleMarker(
-            location=[row['latitude'], row['longitude']],
-            radius=3, color='orange', fill=True, opacity=0.4,
-            popup=f"Hotspot (Brightness: {row['brightness']}K)"
-        ).add_to(m)
+        folium.CircleMarker(location=[row['latitude'], row['longitude']], radius=3, color='orange', fill=True, opacity=0.4).add_to(m)
 
-# C. Weather Layers (RainViewer)
+# FIXED NASA TILE URL (Added /wmts/epsg3857/best/)
 if hazard_overlay != "None":
-    try:
-        rv_response = requests.get("https://api.rainviewer.com/public/weather-maps.json", timeout=5)
-        if rv_response.status_code == 200:
-            rv_meta = rv_response.json()
-            path = rv_meta['radar']['past'][-1]['path'] if hazard_overlay == "Rain Radar" else rv_meta['satellite']['infrared'][-1]['path']
-            color_scheme = 2 if hazard_overlay == "Rain Radar" else 0
-            tile_url = f"{rv_meta['host']}{path}/256/{{z}}/{{x}}/{{y}}/{color_scheme}/1_1.png"
-            folium.TileLayer(tiles=tile_url, attr="RainViewer", name=hazard_overlay, overlay=True, opacity=0.5).add_to(m)
-    except Exception as e:
-        st.sidebar.warning(f"Weather Overlay Unavailable: {e}")
-# --- 6. LEGEND (REFINED) ---
+    layer = "MODIS_Terra_CorrectedReflectance_TrueColor" if "TrueColor" in hazard_overlay else "GPM_IMERG_Late_Precipitation_Rate"
+    ext = "jpg" if "TrueColor" in hazard_overlay else "png"
+    nasa_url = f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/default/GoogleMapsCompatible_Level9/{{z}}/{{y}}/{{x}}.{ext}"
+    folium.TileLayer(tiles=nasa_url, attr="NASA EOSDIS", name=hazard_overlay, overlay=True, opacity=0.55).add_to(m)
+
+# --- 6. LEGEND ---
 legend_html = """
 {% macro html(this, kwargs) %}
-<div id='maplegend' class='maplegend' 
-    style='position: fixed; bottom: 50px; left: 50px; width: 180px; height: 110px; 
-    background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
-    padding: 10px; border-radius: 5px; color: black;'>
+<div id='maplegend' style='position: fixed; bottom: 50px; left: 50px; width: 180px; height: 110px; background-color: white; border:2px solid grey; z-index:9999; font-size:14px; padding: 10px; border-radius: 5px; color: black;'>
     <b>Map Legend</b><br>
     <i style="background:darkred; width:12px; height:12px; display:inline-block; border-radius:50%"></i> High Risk Zone<br>
     <i style="background:orange; width:12px; height:12px; display:inline-block; border-radius:50%"></i> Active Fire<br>
-    <hr style="margin: 5px 0;"><small>Source: NASA & RainViewer</small>
+    <hr style="margin: 5px 0;"><small>Source: NASA (FIRMS & GIBS)</small>
 </div>
 {% endmacro %}"""
-
-# 1. Define the MacroElement
-macro = MacroElement()
-
-# 2. Assign the template
-macro._template = Template(legend_html)
-
-# 3. Add to the map (m must be defined earlier)
+macro = MacroElement(); macro._template = Template(legend_html)
 m.get_root().add_child(macro)
 
-# Display
+# --- 7. DISPLAY ---
 st_folium(m, width=1400, height=700, returned_objects=[])
 
-# --- 7. DATA TABLE ---
 if risk_alerts:
     st.subheader("Critical Warning Log")
     st.dataframe(pd.DataFrame(risk_alerts), use_container_width=True)
