@@ -3,4 +3,5 @@ folium
 streamlit-folium
 requests
 pandas
+numpy
 branca
