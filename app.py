@@ -112,19 +112,27 @@ if hazard_overlay != "None":
         st.sidebar.warning("Weather API timed out. Try again in a moment.")
     except Exception as e:
         st.sidebar.error(f"Weather Layer failed: {e}")
-# --- 6. LEGEND ---
+# --- 6. LEGEND (REFINED) ---
 legend_html = """
 {% macro html(this, kwargs) %}
-<div style="position: fixed; bottom: 50px; left: 50px; width: 160px; height: 100px; 
-    background-color: white; border:2px solid grey; z-index:9999; font-size:12px;
-    padding: 10px; border-radius: 5px;">
-    <b>Legend</b><br>
-    <i style="background:darkred; width:10px; height:10px; display:inline-block; border-radius:50%"></i> High Risk Zone<br>
-    <i style="background:orange; width:10px; height:10px; display:inline-block; border-radius:50%"></i> Active Fire<br>
-    <small>Spatial Step: 2.5° Grid</small>
+<div id='maplegend' class='maplegend' 
+    style='position: fixed; bottom: 50px; left: 50px; width: 180px; height: 110px; 
+    background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
+    padding: 10px; border-radius: 5px; color: black;'>
+    <b>Map Legend</b><br>
+    <i style="background:darkred; width:12px; height:12px; display:inline-block; border-radius:50%"></i> High Risk Zone<br>
+    <i style="background:orange; width:12px; height:12px; display:inline-block; border-radius:50%"></i> Active Fire<br>
+    <hr style="margin: 5px 0;"><small>Source: NASA & RainViewer</small>
 </div>
 {% endmacro %}"""
-legend = MacroElement(); legend._template = Template(legend_html)
+
+# 1. Define the MacroElement
+macro = MacroElement()
+
+# 2. Assign the template
+macro._template = Template(legend_html)
+
+# 3. Add to the map (m must be defined earlier)
 m.get_root().add_child(macro)
 
 # Display
