@@ -70,7 +70,7 @@ hazard_overlay = st.sidebar.selectbox("NASA GIBS Overlays", ["None", "Precipitat
 # --- 5. MAPPING ENGINE ---
 m = folium.Map(location=[22.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
 
-# Define target_date for the URL (24-hour buffer for NASA GIBS availability)
+# Set target_date to 24 hours ago to ensure NASA GIBS tile availability
 target_date = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
 
 for alert in risk_alerts:
@@ -80,12 +80,12 @@ if fire_df is not None:
     for _, row in fire_df.iterrows():
         folium.CircleMarker(location=[row['latitude'], row['longitude']], radius=3, color='orange', fill=True, opacity=0.4).add_to(m)
 
-# NASA GIBS Overlay (HARDENED)
+# NASA GIBS Overlay (Corrected for Data Latency)
 if hazard_overlay != "None":
     layer = "MODIS_Terra_CorrectedReflectance_TrueColor" if "TrueColor" in hazard_overlay else "GPM_IMERG_Late_Precipitation_Rate"
     ext = "jpg" if "TrueColor" in hazard_overlay else "png"
     
-    # FIXED URL: Added /wmts/epsg3857/best/ and properly used the target_date variable
+    # Static URL structure using target_date for guaranteed imagery retrieval
     nasa_url = f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{target_date}/GoogleMapsCompatible_Level9/{{z}}/{{y}}/{{x}}.{ext}"
     
     folium.TileLayer(
