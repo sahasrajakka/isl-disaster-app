@@ -78,34 +78,40 @@ if fire_df is not None:
 
 hazard_overlay = st.sidebar.selectbox("Active Overlay", ["None", "Rain Radar", "Cloud Coverage"])
 
-# --- 5. MAPPING ENGINE ---
-m = folium.Map(location=[22.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
-
-# Risk Layer (The "Intelligence" Layer)
-for alert in risk_alerts:
-    folium.CircleMarker(
-        location=[alert['lat'], alert['lon']],
-        radius=10, color='darkred', fill=True, fill_opacity=0.8,
-        popup=f"CRITICAL: Fire fanned by {alert['wind']}km/h winds within {alert['dist']}km"
-    ).add_to(m)
-
-# Standard Fire Layer
-if fire_df is not None:
-    for _, row in fire_df.iterrows():
-        folium.CircleMarker(
-            location=[row['latitude'], row['longitude']],
-            radius=3, color='orange', fill=True, opacity=0.4
-        ).add_to(m)
-
-# Weather Layers (RainViewer)
+# --- 5. WEATHER LAYERS (RainViewer) ---
 if hazard_overlay != "None":
     try:
-        rv_meta = requests.get("https://api.rainviewer.com").json()
-        path = rv_meta['radar']['past'][-1]['path'] if hazard_overlay == "Rain Radar" else rv_meta['satellite']['infrared'][-1]['path']
-        tile_url = f"{rv_meta['host']}{path}/256/{{z}}/{{x}}/{{y}}/2/1_1.png"
-        folium.TileLayer(tiles=tile_url, attr="RainViewer", name=hazard_overlay, overlay=True, opacity=0.5).add_to(m)
-    except: st.error("Weather overlay timeout.")
-
+        # CORRECTED URL: Must point to the JSON endpoint, not the homepage
+        rv_response = requests.get("https://api.rainviewer.com/public/weather-maps.json", timeout=5)
+        
+        if rv_response.status_code == 200:
+            rv_meta = rv_response.json()
+            
+            # Select appropriate frame (Radar or Satellite)
+            if hazard_overlay == "Rain Radar":
+                path = rv_meta['radar']['past'][-1]['path']
+                color_scheme = 2  # Standard Radar colors
+            else:
+                path = rv_meta['satellite']['infrared'][-1]['path']
+                color_scheme = 0  # Standard Satellite IR
+            
+            # Build the tile URL using the host and path from the API response
+            tile_url = f"{rv_meta['host']}{path}/256/{{z}}/{{x}}/{{y}}/{color_scheme}/1_1.png"
+            
+            folium.TileLayer(
+                tiles=tile_url, 
+                attr="RainViewer", 
+                name=hazard_overlay, 
+                overlay=True, 
+                opacity=0.5
+            ).add_to(m)
+        else:
+            st.sidebar.warning(f"Weather API Error: {rv_response.status_code}")
+            
+    except requests.exceptions.Timeout:
+        st.sidebar.warning("Weather API timed out. Try again in a moment.")
+    except Exception as e:
+        st.sidebar.error(f"Weather Layer failed: {e}")
 # --- 6. LEGEND ---
 legend_html = """
 {% macro html(this, kwargs) %}
