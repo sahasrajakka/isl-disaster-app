@@ -1,36 +1,25 @@
-# isl-disaster-app
-This platform utilizes Real-time Nowcasting and Satellite GIS integration to detect environmental hazards, using AI to synthesize hyper-local safety strategies for at-risk zones.
+# Project Sentinel
+### Real-Time Multi-Hazard Nowcasting and Risk Correlation System
 
-
-# 🛰️ Project Sentinel: AI-Powered GEOINT for Disaster Response
-**A Geospatial Decision Support System (DSS) for Real-Time Hazard Monitoring**
-
-## 📖 Project Overview
-Project Sentinel is a cloud-native **Geospatial Intelligence (GEOINT)** pipeline designed to bridge the gap between raw satellite observations and actionable ground-level response. The system automates the ingestion of thermal anomaly data and leverages Generative AI to synthesize coordinate-specific emergency protocols.
-
-## 🚀 Key Functionalities
-- **Live Nowcasting:** Real-time ingestion and visualization of thermal anomalies and active fire hotspots using the **NASA FIRMS (LANCE) API**.
-- **Intelligent Logic Engine:** Integration with **Google Gemini Pro** to analyze disaster proximity and generate localized evacuation strategies.
-- **Interactive Decision Dashboard:** A high-performance interface built with **Streamlit** for real-time situational awareness and geospatial data manipulation.
-
-## 🛠️ System Architecture
-- **Data Layer:** Automated telemetry fetching from NASA VIIRS/MODIS satellite constellations.
-- **Processing Layer:** Python-based logic for coordinate filtering and hazard proximity calculation.
-- **Intelligence Layer:** Large Language Model (LLM) integration for context-aware disaster response generation.
-- **Presentation Layer:** Interactive mapping using Folium and Streamlit-Folium.
-
-## 💻 Tech Stack
-- **Language:** Python
-- **API Integration:** NASA LANCE APIs, Google Gemini API
-- **Geospatial Tools:** Folium, Geopandas
-- **Deployment:** Streamlit Cloud / GitHub Version Control
-
-## 📂 Project Structure
-- `app.py`: Core application logic and UI framework.
-- `requirements.txt`: Python environment dependencies.
-- `research/`: Technical documentation on GIS and disaster response workflows.
+Project Sentinel is a **Geospatial Intelligence (GEOINT)** engine developed to automate the detection and risk assessment of wildfires across the Indian subcontinent. Moving beyond static data visualization, the system executes **Sensor Fusion**—the algorithmic correlation of thermal anomalies with atmospheric wind vectors—to identify high-probability spread zones. 
 
 ---
-**Developer:** Sahasra Jakka
-**Field:** Computer Science & Engineering  
-**Focus:** Space-Tech | AI | Geospatial Data
+
+## Systemic Capabilities
+
+*   **Thermal Hotspot Detection:** Near real-time data ingestion from the **NASA VIIRS (SNPP)** sensor via the MODAPS FIRMS API.
+*   **Spatial Grid Generation:** Automated synthesis of a 2.5° atmospheric grid over India to retrieve high-resolution meteorological data.
+*   **Spatial Correlation Engine:** Computational implementation of the **Haversine Formula** to determine spherical distances between non-synchronous datasets.
+*   **Predictive Risk Modeling:** Dynamic identification of **"Critical Risk Zones"** where high-velocity wind vectors (>25km/h) intersect with active fire clusters within a 100km proximity.
+*   **Multi-Layer Overlays:** Integration of the **RainViewer API** for infrared satellite and Doppler radar analysis.
+
+---
+
+## Development Stack
+
+| Component | Technology |
+| :--- | :--- |
+| **Architecture** | Streamlit (Data Engineering Framework) |
+| **Geospatial Visualization** | Folium and Leaflet.js |
+| **Numerical Computation** | Pandas and NumPy |
+| **Data Providers** | NASA FIRMS, Open-Meteo GFS, and RainViewer |
