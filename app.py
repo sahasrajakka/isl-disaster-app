@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from io import StringIO
 from branca.element import Template, MacroElement
+from datetime import datetime, timedelta
 
 # --- 1. SETTINGS ---
 st.set_page_config(page_title="Project Sentinel", layout="wide")
@@ -69,6 +70,9 @@ hazard_overlay = st.sidebar.selectbox("NASA GIBS Overlays", ["None", "Precipitat
 # --- 5. MAPPING ENGINE ---
 m = folium.Map(location=[22.5937, 78.9629], zoom_start=5, tiles="cartodbpositron")
 
+# Define target_date for the URL (24-hour buffer for NASA GIBS availability)
+target_date = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
+
 for alert in risk_alerts:
     folium.CircleMarker(location=[alert['lat'], alert['lon']], radius=10, color='darkred', fill=True, fill_opacity=0.8, popup=f"CRITICAL: Fire fanned by {alert['wind']}km/h winds").add_to(m)
 
@@ -76,12 +80,21 @@ if fire_df is not None:
     for _, row in fire_df.iterrows():
         folium.CircleMarker(location=[row['latitude'], row['longitude']], radius=3, color='orange', fill=True, opacity=0.4).add_to(m)
 
-# FIXED NASA TILE URL (Added /wmts/epsg3857/best/)
+# NASA GIBS Overlay (HARDENED)
 if hazard_overlay != "None":
     layer = "MODIS_Terra_CorrectedReflectance_TrueColor" if "TrueColor" in hazard_overlay else "GPM_IMERG_Late_Precipitation_Rate"
     ext = "jpg" if "TrueColor" in hazard_overlay else "png"
-    nasa_url = f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/default/GoogleMapsCompatible_Level9/{{z}}/{{y}}/{{x}}.{ext}"
-    folium.TileLayer(tiles=nasa_url, attr="NASA EOSDIS", name=hazard_overlay, overlay=True, opacity=0.55).add_to(m)
+    
+    # FIXED URL: Added /wmts/epsg3857/best/ and properly used the target_date variable
+    nasa_url = f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{target_date}/GoogleMapsCompatible_Level9/{{z}}/{{y}}/{{x}}.{ext}"
+    
+    folium.TileLayer(
+        tiles=nasa_url, 
+        attr="NASA EOSDIS", 
+        name=f"{hazard_overlay} ({target_date})", 
+        overlay=True, 
+        opacity=0.55
+    ).add_to(m)
 
 # --- 6. LEGEND ---
 legend_html = """
