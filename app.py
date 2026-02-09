@@ -125,7 +125,7 @@ legend_html = """
 </div>
 {% endmacro %}"""
 legend = MacroElement(); legend._template = Template(legend_html)
-m.get_root().add_child(legend)
+m.get_root().add_child(macro)
 
 # Display
 st_folium(m, width=1400, height=700, returned_objects=[])
