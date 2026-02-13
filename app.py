@@ -5,19 +5,18 @@ import requests
 import pandas as pd
 import numpy as np
 from io import StringIO
-from branca.element import Template, MacroElement
 from datetime import datetime, timedelta
 
 # ======================================================
-# 1. SETTINGS
+# 1. APP SETTINGS
 # ======================================================
 
 st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: Wildfire Hazard Intelligence System")
-st.subheader("Wind-Amplified Risk Detection & Forward Spread Simulation")
+st.subheader("Wind-Amplified Risk Detection & Forward Spread Projection")
 
-# ⚠ Replace with your actual NASA key
-NASA_KEY = "YOUR_NASA_KEY_HERE"
+NASA_KEY = "YOUR_NASA_KEY_HERE"  # Replace with real key
+
 
 # ======================================================
 # 2. CORE GEOSPATIAL FUNCTIONS
@@ -29,7 +28,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
     a = np.sin(dphi/2)**2 + np.cos(phi1)*np.cos(phi2)*np.sin(dlambda/2)**2
-    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
 
 def compute_risk(wind_speed, distance, decay_constant=50):
@@ -68,7 +67,7 @@ def project_point(lat, lon, distance_km, bearing_deg):
 
 
 # ======================================================
-# 3. FETCH FIRE DATA (NASA FIRMS)
+# 3. FETCH NASA FIRE DATA
 # ======================================================
 
 @st.cache_data(ttl=3600)
@@ -123,6 +122,7 @@ def fetch_wind_grid():
                     "speed": d["current"]["wind_speed_10m"],
                     "direction": d["current"]["wind_direction_10m"]
                 })
+
         except:
             continue
 
@@ -139,7 +139,7 @@ wind_data = fetch_wind_grid()
 risk_alerts = []
 
 # ======================================================
-# 6. RISK CALCULATION + FORWARD PROJECTION
+# 6. RISK + FORWARD SPREAD CALCULATION
 # ======================================================
 
 if fire_df is not None and wind_data:
@@ -170,7 +170,6 @@ if fire_df is not None and wind_data:
 
             if risk_level in ["High", "Extreme"]:
 
-                # Predict forward spread (scaled by wind speed)
                 spread_distance = min(25, closest_wind["speed"] * 0.6)
 
                 proj_lat, proj_lon = project_point(
@@ -183,9 +182,9 @@ if fire_df is not None and wind_data:
                 risk_alerts.append({
                     "lat": fire["latitude"],
                     "lon": fire["longitude"],
-                    "wind_speed": closest_wind["speed"],
-                    "risk_score": round(risk_score, 2),
                     "risk_level": risk_level,
+                    "risk_score": round(risk_score, 2),
+                    "wind_speed": closest_wind["speed"],
                     "proj_lat": proj_lat,
                     "proj_lon": proj_lon
                 })
@@ -205,7 +204,7 @@ else:
 
 overlay_option = st.sidebar.selectbox(
     "NASA Overlay",
-    ["None", "Precipitation Rate", "TrueColor Cloud"]
+    ["None", "TrueColor Cloud", "Precipitation Rate"]
 )
 
 
@@ -213,14 +212,18 @@ overlay_option = st.sidebar.selectbox(
 # 8. MAP INITIALIZATION
 # ======================================================
 
-m = folium.Map(location=[22.5937, 78.9629], zoom_start=4, tiles="cartodbpositron")
+m = folium.Map(
+    location=[22.5937, 78.9629],
+    zoom_start=5,
+    tiles="cartodbpositron"
+)
 
-target_date = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
+target_date = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
 
-# Plot high-risk fires
+
+# Plot Fire + Projection
 for alert in risk_alerts:
 
-    # Fire point
     folium.CircleMarker(
         location=[alert["lat"], alert["lon"]],
         radius=9,
@@ -230,18 +233,17 @@ for alert in risk_alerts:
         popup=f"{alert['risk_level']} Risk | Wind {alert['wind_speed']} km/h"
     ).add_to(m)
 
-    # Projected spread
     folium.CircleMarker(
         location=[alert["proj_lat"], alert["proj_lon"]],
         radius=6,
         color="purple",
         fill=True,
         fill_opacity=0.7,
-        popup="Predicted Spread Zone"
+        popup="Predicted Spread"
     ).add_to(m)
 
 
-# Plot active fires
+# Plot all fire hotspots
 if fire_df is not None:
     for _, row in fire_df.iterrows():
         folium.CircleMarker(
@@ -254,30 +256,29 @@ if fire_df is not None:
 
 
 # ======================================================
-# 9. NASA OVERLAY
+# 9. NASA OVERLAY (FIXED VERSION)
 # ======================================================
 
 if overlay_option != "None":
 
-    layer = (
-        "MODIS_Terra_CorrectedReflectance_TrueColor"
-        if "Cloud" in overlay_option
-        else "GPM_IMERG_Early_Precipitation_Rate"
-    )
-
-    ext = "jpg" if "Cloud" in overlay_option else "png"
+    if overlay_option == "TrueColor Cloud":
+        layer = "MODIS_Terra_CorrectedReflectance_TrueColor"
+        ext = "jpg"
+    else:
+        layer = "GPM_IMERG_Early_Precipitation_Rate"
+        ext = "png"
 
     nasa_url = (
         f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/"
         f"{layer}/default/{target_date}/"
-        f"GoogleMapsCompatible_Level6/{{z}}/{{y}}/{{x}}.{ext}"
+        f"GoogleMapsCompatible_Level9/{{z}}/{{y}}/{{x}}.{ext}"
     )
 
     folium.TileLayer(
         tiles=nasa_url,
         attr="NASA EOSDIS",
         overlay=True,
-        opacity=0.8
+        opacity=1
     ).add_to(m)
 
 
