@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: Wildfire Hazard Intelligence System")
-st.subheader("Wind + Rain Adjusted Spread Modeling with Satellite Overlay")
+st.subheader(" With added Wind + Rain Modeling with Satellite Overlay")
 
 NASA_KEY = "YOUR_NASA_KEY_HERE"  # Replace with real key
 
