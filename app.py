@@ -7,31 +7,29 @@ import numpy as np
 from io import StringIO
 from branca.element import Template, MacroElement
 from datetime import datetime, timedelta
-import os
 
 # ======================================================
-# 1. APP SETTINGS
+# 1. SETTINGS
 # ======================================================
 
 st.set_page_config(page_title="Project Sentinel", layout="wide")
-st.title("🛰️ Project Sentinel: Geospatial Hazard Intelligence System")
-st.subheader("Wind-Amplified Wildfire Risk Detection")
+st.title("🛰️ Project Sentinel: Wildfire Hazard Intelligence System")
+st.subheader("Wind-Amplified Risk Detection & Forward Spread Simulation")
 
-NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63"
-
+# ⚠ Replace with your actual NASA key
+NASA_KEY = "YOUR_NASA_KEY_HERE"
 
 # ======================================================
-# 2. CORE FUNCTIONS
+# 2. CORE GEOSPATIAL FUNCTIONS
 # ======================================================
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    R = 6371  # Earth radius in km
+    R = 6371
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
     dphi = np.radians(lat2 - lat1)
     dlambda = np.radians(lon2 - lon1)
-
-    a = np.sin(dphi / 2)**2 + np.cos(phi1)*np.cos(phi2)*np.sin(dlambda / 2)**2
-    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    a = np.sin(dphi/2)**2 + np.cos(phi1)*np.cos(phi2)*np.sin(dlambda/2)**2
+    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1-a))
 
 
 def compute_risk(wind_speed, distance, decay_constant=50):
@@ -47,6 +45,26 @@ def classify_risk(score):
         return "Moderate"
     else:
         return "Low"
+
+
+def project_point(lat, lon, distance_km, bearing_deg):
+    R = 6371
+    bearing = np.radians(bearing_deg)
+
+    lat1 = np.radians(lat)
+    lon1 = np.radians(lon)
+
+    lat2 = np.arcsin(
+        np.sin(lat1) * np.cos(distance_km / R) +
+        np.cos(lat1) * np.sin(distance_km / R) * np.cos(bearing)
+    )
+
+    lon2 = lon1 + np.arctan2(
+        np.sin(bearing) * np.sin(distance_km / R) * np.cos(lat1),
+        np.cos(distance_km / R) - np.sin(lat1) * np.sin(lat2)
+    )
+
+    return np.degrees(lat2), np.degrees(lon2)
 
 
 # ======================================================
@@ -66,7 +84,7 @@ def fetch_fire_data(api_key):
 
 
 # ======================================================
-# 4. FETCH WIND DATA (Open-Meteo, chunked)
+# 4. FETCH WIND DATA (Speed + Direction)
 # ======================================================
 
 @st.cache_data(ttl=1800)
@@ -76,7 +94,6 @@ def fetch_wind_grid():
     lons = np.arange(68, 98, 2.5)
     coords = [{"lat": la, "lon": lo} for la in lats for lo in lons]
 
-    # Split into chunks to avoid URL length limit
     chunks = [coords[i:i + 72] for i in range(0, len(coords), 72)]
     wind_results = []
 
@@ -88,7 +105,7 @@ def fetch_wind_grid():
             "https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat_str}"
             f"&longitude={lon_str}"
-            "&current=wind_speed_10m"
+            "&current=wind_speed_10m,wind_direction_10m"
         )
 
         try:
@@ -103,9 +120,9 @@ def fetch_wind_grid():
                 wind_results.append({
                     "lat": c["lat"],
                     "lon": c["lon"],
-                    "speed": d["current"]["wind_speed_10m"]
+                    "speed": d["current"]["wind_speed_10m"],
+                    "direction": d["current"]["wind_direction_10m"]
                 })
-
         except:
             continue
 
@@ -119,21 +136,16 @@ def fetch_wind_grid():
 fire_df = fetch_fire_data(NASA_KEY)
 wind_data = fetch_wind_grid()
 
-if not wind_data:
-    st.warning("Wind data unavailable. Risk detection may be degraded.")
-
-
-# ======================================================
-# 6. RISK CALCULATION
-# ======================================================
-
 risk_alerts = []
+
+# ======================================================
+# 6. RISK CALCULATION + FORWARD PROJECTION
+# ======================================================
 
 if fire_df is not None and wind_data:
 
     for _, fire in fire_df.iterrows():
 
-        # Find nearest wind grid point
         closest_wind = min(
             wind_data,
             key=lambda w: haversine_distance(
@@ -147,7 +159,7 @@ if fire_df is not None and wind_data:
             closest_wind["lat"], closest_wind["lon"]
         )
 
-        if distance < 150:  # search radius (km)
+        if distance < 150:
 
             risk_score = compute_risk(
                 closest_wind["speed"],
@@ -157,13 +169,25 @@ if fire_df is not None and wind_data:
             risk_level = classify_risk(risk_score)
 
             if risk_level in ["High", "Extreme"]:
+
+                # Predict forward spread (scaled by wind speed)
+                spread_distance = min(25, closest_wind["speed"] * 0.6)
+
+                proj_lat, proj_lon = project_point(
+                    fire["latitude"],
+                    fire["longitude"],
+                    spread_distance,
+                    closest_wind["direction"]
+                )
+
                 risk_alerts.append({
                     "lat": fire["latitude"],
                     "lon": fire["longitude"],
                     "wind_speed": closest_wind["speed"],
-                    "distance_km": round(distance, 1),
                     "risk_score": round(risk_score, 2),
-                    "risk_level": risk_level
+                    "risk_level": risk_level,
+                    "proj_lat": proj_lat,
+                    "proj_lon": proj_lon
                 })
 
 
@@ -174,13 +198,13 @@ if fire_df is not None and wind_data:
 st.sidebar.header("System Status")
 
 if fire_df is not None:
-    st.sidebar.success(f"Active Hotspots: {len(fire_df)}")
+    st.sidebar.success(f"Active Fires: {len(fire_df)}")
     st.sidebar.metric("High-Risk Zones", len(risk_alerts))
 else:
     st.sidebar.error("Fire data unavailable")
 
 overlay_option = st.sidebar.selectbox(
-    "NASA GIBS Overlay",
+    "NASA Overlay",
     ["None", "Precipitation Rate", "TrueColor Cloud"]
 )
 
@@ -189,32 +213,35 @@ overlay_option = st.sidebar.selectbox(
 # 8. MAP INITIALIZATION
 # ======================================================
 
-m = folium.Map(
-    location=[22.5937, 78.9629],
-    zoom_start=4,
-    tiles="cartodbpositron"
-)
+m = folium.Map(location=[22.5937, 78.9629], zoom_start=4, tiles="cartodbpositron")
 
 target_date = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
 
-
-# Plot high-risk zones
+# Plot high-risk fires
 for alert in risk_alerts:
+
+    # Fire point
     folium.CircleMarker(
         location=[alert["lat"], alert["lon"]],
         radius=9,
         color="darkred",
         fill=True,
         fill_opacity=0.85,
-        popup=(
-            f"{alert['risk_level']} Risk<br>"
-            f"Wind: {alert['wind_speed']} km/h<br>"
-            f"Score: {alert['risk_score']}"
-        )
+        popup=f"{alert['risk_level']} Risk | Wind {alert['wind_speed']} km/h"
+    ).add_to(m)
+
+    # Projected spread
+    folium.CircleMarker(
+        location=[alert["proj_lat"], alert["proj_lon"]],
+        radius=6,
+        color="purple",
+        fill=True,
+        fill_opacity=0.7,
+        popup="Predicted Spread Zone"
     ).add_to(m)
 
 
-# Plot active fire hotspots
+# Plot active fires
 if fire_df is not None:
     for _, row in fire_df.iterrows():
         folium.CircleMarker(
@@ -227,7 +254,7 @@ if fire_df is not None:
 
 
 # ======================================================
-# 9. NASA GIBS OVERLAY 
+# 9. NASA OVERLAY
 # ======================================================
 
 if overlay_option != "None":
@@ -255,35 +282,11 @@ if overlay_option != "None":
 
 
 # ======================================================
-# 10. LEGEND
-# ======================================================
-
-legend_html = """
-{% macro html(this, kwargs) %}
-<div style='position: fixed; bottom: 50px; left: 50px; width: 220px;
-background-color: white; border:2px solid grey; z-index:9999;
-font-size:14px; padding: 10px; border-radius: 6px; color: black;'>
-
-<b>Legend</b><br>
-<span style="color:darkred;">●</span> High / Extreme Risk<br>
-<span style="color:orange;">●</span> Active Fire<br>
-<hr>
-<small>Source: NASA FIRMS & GIBS</small>
-</div>
-{% endmacro %}
-"""
-
-macro = MacroElement()
-macro._template = Template(legend_html)
-m.get_root().add_child(macro)
-
-
-# ======================================================
-# 11. DISPLAY
+# 10. DISPLAY
 # ======================================================
 
 st_folium(m, width=1400, height=700)
 
 if risk_alerts:
-    st.subheader("Detected High-Risk Zones")
+    st.subheader("Detected High-Risk & Predicted Spread Zones")
     st.dataframe(pd.DataFrame(risk_alerts), use_container_width=True)
