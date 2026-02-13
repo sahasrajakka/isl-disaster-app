@@ -17,11 +17,7 @@ st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: Geospatial Hazard Intelligence System")
 st.subheader("Wind-Amplified Wildfire Risk Detection")
 
-NASA_KEY = os.getenv("NASA_API_KEY")
-
-if not NASA_KEY:
-    st.error("Please set NASA_API_KEY as an environment variable.")
-    st.stop()
+NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63"
 
 
 # ======================================================
