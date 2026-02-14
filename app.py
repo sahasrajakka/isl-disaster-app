@@ -15,7 +15,7 @@ st.set_page_config(page_title="Project Sentinel", layout="wide")
 st.title("🛰️ Project Sentinel: Wildfire Hazard Intelligence System")
 st.subheader("Wind-Amplified Risk Detection & Forward Spread Projection")
 
-NASA_KEY = "YOUR_NASA_KEY_HERE"  # Replace with real key
+NASA_KEY = "992b32694a52d2b8e8f7d36bd3396e63"
 
 
 # ======================================================
@@ -256,7 +256,7 @@ if fire_df is not None:
 
 
 # ======================================================
-# 9. NASA OVERLAY (FIXED VERSION)
+# 9. NASA OVERLAY
 # ======================================================
 
 if overlay_option != "None":
