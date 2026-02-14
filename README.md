@@ -1,25 +1,54 @@
-# Project Sentinel
-### Real-Time Multi-Hazard Nowcasting and Risk Correlation System
-
-Project Sentinel is a **Geospatial Intelligence (GEOINT)** engine developed to automate the detection and risk assessment of wildfires across the Indian subcontinent. Moving beyond static data visualization, the system executes **Sensor Fusion**—the algorithmic correlation of thermal anomalies with atmospheric wind vectors—to identify high-probability spread zones. 
+# Project Sentinel  
+### Wind-Amplified Wildfire Hazard Intelligence System
 
 ---
 
-## Systemic Capabilities
+## Overview
 
-*   **Thermal Hotspot Detection:** Near real-time data ingestion from the **NASA VIIRS (SNPP)** sensor via the MODAPS FIRMS API.
-*   **Spatial Grid Generation:** Automated synthesis of a 2.5° atmospheric grid over India to retrieve high-resolution meteorological data.
-*   **Spatial Correlation Engine:** Computational implementation of the **Haversine Formula** to determine spherical distances between non-synchronous datasets.
-*   **Predictive Risk Modeling:** Dynamic identification of **"Critical Risk Zones"** where high-velocity wind vectors (>25km/h) intersect with active fire clusters within a 100km proximity.
-*   **Multi-Layer Overlays:** Integration of the **RainViewer API** for infrared satellite and Doppler radar analysis.
+Project Sentinel is a geospatial hazard intelligence prototype that analyzes wind-amplified wildfire risk using real-time satellite hotspot detection and meteorological wind data.
+
+The system integrates NASA FIRMS wildfire data with wind speed and direction modeling to estimate forward fire spread potential and visualize high-risk zones interactively.
 
 ---
 
-## Development Stack
+## Key Features
 
-| Component | Technology |
-| :--- | :--- |
-| **Architecture** | Streamlit (Data Engineering Framework) |
-| **Geospatial Visualization** | Folium and Leaflet.js |
-| **Numerical Computation** | Pandas and NumPy |
-| **Data Providers** | NASA FIRMS, Open-Meteo GFS, and RainViewer |
+- NASA FIRMS VIIRS Near Real-Time Fire Hotspots
+- Wind Speed & Direction Integration (Open-Meteo)
+- Geodesic Distance Calculation (Haversine Formula)
+- Exponential Distance-Decay Risk Model
+- Forward Spread Projection Simulation
+- Interactive GIS Visualization (Folium)
+- Satellite Cloud Overlay (NASA GIBS WMTS)
+- Precipitation Rate Overlay
+
+---
+
+## Methodology
+
+1. Retrieve active wildfire hotspots from NASA FIRMS.
+2. Sample regional wind field data using Open-Meteo API.
+3. Compute geodesic distance between fire and wind grid points.
+4. Apply exponential decay model to quantify wind amplification.
+5. Classify risk into Moderate / High / Extreme tiers.
+6. Project forward spread along prevailing wind bearing.
+7. Render interactive visualization with satellite overlays.
+
+---
+
+## Data Sources
+
+- NASA FIRMS (VIIRS NRT)
+- NASA GIBS WMTS Satellite Imagery
+- Open-Meteo Weather API
+
+---
+
+## Technologies Used
+
+- Python
+- Streamlit
+- Folium
+- NumPy
+- Pandas
+- REST APIs
